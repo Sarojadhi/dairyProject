@@ -10,7 +10,8 @@ $userId = (int)($_SESSION['user_id'] ?? 0);
 // Initialize variables
 $farmers = 0;
 $milk = ['litres' => 0, 'earning' => 0, 'revenue' => 0];
-$recent = null;
+$recent = [];
+$errorMsg = '';
 
 try {
     if ($role === 'farmer') {
@@ -41,7 +42,8 @@ try {
         if ($stmt) {
             $stmt->bind_param("i", $userId);
             $stmt->execute();
-            $recent = $stmt->get_result();
+            $result = $stmt->get_result();
+            $recent = $result->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
         }
     } else {
@@ -64,22 +66,14 @@ try {
         $milk['revenue'] = (float)($milk['revenue'] ?? 0);
 
         // Recent records across all farmers
-        $recent = $conn->query("
+        $result = $conn->query("
             SELECT mc.*, f.name, f.code
             FROM milk_collection mc
             JOIN farmers f ON f.id = mc.farmer_id
             ORDER BY mc.collection_date DESC
             LIMIT 10
         ");
-    }
-
-    // Ensure $recent is a valid mysqli_result object
-    if (!($recent instanceof mysqli_result)) {
-        // If query failed, create an empty result set
-        $recent = new mysqli_result($conn, MYSQLI_STORE_RESULT);
-        // But we can't create an empty result easily; we'll set to null and handle in while
-        // Better to create a dummy array to iterate? Let's set $recent = null and handle.
-        $recent = null;
+        $recent = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
     }
 
 } catch (Exception $e) {
@@ -188,8 +182,8 @@ try {
 
                 <tbody>
 
-                <?php if ($recent && $recent->num_rows > 0): ?>
-                    <?php while ($row = $recent->fetch_assoc()): ?>
+                <?php if (!empty($recent)): ?>
+                    <?php foreach ($recent as $row): ?>
 
                         <tr>
 
@@ -230,7 +224,7 @@ try {
 
                         </tr>
 
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <tr>
                         <td colspan="<?= $role === 'farmer' ? 7 : 8 ?>" class="text-center text-muted py-4">

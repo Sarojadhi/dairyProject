@@ -5,27 +5,39 @@ requireLogin();
 requireRole('farmer');
 
 $pageTitle = 'My Records';
-$farmerId = $_SESSION['user_id'];
+$farmerId = (int)$_SESSION['user_id'];
 $month = $_GET['month'] ?? date('Y-m');
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m');
 
-$farmer = $conn->query("SELECT * FROM farmers WHERE id = $farmerId")->fetch_assoc();
+$stmt = $conn->prepare("SELECT * FROM farmers WHERE id = ?");
+$stmt->bind_param('i', $farmerId);
+$stmt->execute();
+$farmer = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$milkRecords = $conn->query("
+$stmt = $conn->prepare("
     SELECT * FROM milk_collection
-    WHERE farmer_id = $farmerId
-    AND DATE_FORMAT(collection_date, '%Y-%m') = '$month'
+    WHERE farmer_id = ?
+    AND DATE_FORMAT(collection_date, '%Y-%m') = ?
     ORDER BY collection_date DESC
 ");
+$stmt->bind_param('is', $farmerId, $month);
+$stmt->execute();
+$milkRecords = $stmt->get_result();
+$stmt->close();
 
-$danaRecords = $conn->query("
+$stmt = $conn->prepare("
     SELECT * FROM dana_records
-    WHERE farmer_id = $farmerId
-    AND DATE_FORMAT(dana_date, '%Y-%m') = '$month'
+    WHERE farmer_id = ?
+    AND DATE_FORMAT(dana_date, '%Y-%m') = ?
     ORDER BY dana_date DESC
 ");
+$stmt->bind_param('is', $farmerId, $month);
+$stmt->execute();
+$danaRecords = $stmt->get_result();
+$stmt->close();
 
-$milk = $conn->query("
+$stmt = $conn->prepare("
     SELECT
         SUM(litre) AS litres,
         AVG(fat) AS fat,
@@ -33,25 +45,37 @@ $milk = $conn->query("
         SUM(total_amount) AS amount,
         COUNT(*) AS entries
     FROM milk_collection
-    WHERE farmer_id = $farmerId
-    AND DATE_FORMAT(collection_date, '%Y-%m') = '$month'
-")->fetch_assoc();
+    WHERE farmer_id = ?
+    AND DATE_FORMAT(collection_date, '%Y-%m') = ?
+");
+$stmt->bind_param('is', $farmerId, $month);
+$stmt->execute();
+$milk = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$dana = $conn->query("
+$stmt = $conn->prepare("
     SELECT SUM(total_amount) AS amount
     FROM dana_records
-    WHERE farmer_id = $farmerId
-    AND DATE_FORMAT(dana_date, '%Y-%m') = '$month'
-")->fetch_assoc();
+    WHERE farmer_id = ?
+    AND DATE_FORMAT(dana_date, '%Y-%m') = ?
+");
+$stmt->bind_param('is', $farmerId, $month);
+$stmt->execute();
+$dana = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 $milkAmount = $milk['amount'] ?? 0;
 $danaAmount = $dana['amount'] ?? 0;
 $netAmount = $milkAmount - $danaAmount;
 
-$payment = $conn->query("
+$stmt = $conn->prepare("
     SELECT * FROM payments
-    WHERE farmer_id = $farmerId AND payment_month = '$month'
-")->fetch_assoc();
+    WHERE farmer_id = ? AND payment_month = ?
+");
+$stmt->bind_param('is', $farmerId, $month);
+$stmt->execute();
+$payment = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 ?>
 <?php include __DIR__ . '/../../includes/header.php'; ?>
 

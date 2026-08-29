@@ -122,13 +122,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['update'])) {
 // TOGGLE ACTIVE / DEACTIVATE
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
-    $conn->query("UPDATE farmers SET is_active = 0 WHERE id = $id");
+    $stmt = $conn->prepare("UPDATE farmers SET is_active = 0 WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "Farmer deactivated.";
 }
 
 if (isset($_GET['activate'])) {
     $id = (int)$_GET['activate'];
-    $conn->query("UPDATE farmers SET is_active = 1 WHERE id = $id");
+    $stmt = $conn->prepare("UPDATE farmers SET is_active = 1 WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "Farmer activated.";
 }
 
@@ -136,7 +142,11 @@ if (isset($_GET['activate'])) {
 $editRow = null;
 if (isset($_GET['edit'])) {
     $id = (int)$_GET['edit'];
-    $editRow = $conn->query("SELECT * FROM farmers WHERE id = $id")->fetch_assoc();
+    $stmt = $conn->prepare("SELECT * FROM farmers WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $editRow = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
     if ($editRow) $editing = true;
 }
 

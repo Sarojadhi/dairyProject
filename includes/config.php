@@ -70,10 +70,22 @@ if ($conn->connect_error) {
 $conn->set_charset('utf8mb4');
 
 
-// Clean user input
+// Clean user input for database/storage (trim only, prepared statements handle SQL safety)
 function sanitize($data)
 {
     return trim($data);
+}
+
+// Escape output for HTML context to prevent XSS
+function esc($data)
+{
+    return htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+}
+
+// Escape output for HTML attribute context
+function escAttr($data)
+{
+    return htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
 }
 
 

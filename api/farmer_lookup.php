@@ -96,13 +96,17 @@ $farmer['month_milk_total'] = (float) $milkTotal;
 $farmer['last_fat'] = null;
 $farmer['last_snf'] = null;
 
-$last = $conn->query(
+$stmt = $conn->prepare(
     "SELECT fat, snf
      FROM milk_collection
-     WHERE farmer_id = " . (int)$farmer['id'] . "
+     WHERE farmer_id = ?
      ORDER BY collection_date DESC, id DESC
      LIMIT 1"
-)->fetch_assoc();
+);
+$stmt->bind_param('i', $farmer['id']);
+$stmt->execute();
+$last = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
 if ($last) {
     $farmer['last_fat'] = (float) $last['fat'];

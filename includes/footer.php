@@ -21,10 +21,9 @@
 <script src="<?= BASE_URL ?>assets/js/helpers.js"></script>
 <script src="<?= BASE_URL ?>assets/js/ui.js"></script>
 <?php
-// milk-entry.js (and validation.js) are loaded only on dana.php, which
-// overrides lookupFarmer from milk-entry.js. milk_collection.php ships its
-// own self-contained inline script and intentionally does not load these.
-if ($pageTitle === 'Dana (Cow Feed)') :
+// Load milk-entry.js and validation.js on pages that need them
+$milkEntryPages = ['Milk Collection', 'Dana (Cow Feed)'];
+if (in_array($pageTitle, $milkEntryPages, true)) :
 ?>
 <script src="<?= BASE_URL ?>assets/js/milk-entry.js"></script>
 <script src="<?= BASE_URL ?>assets/js/validation.js"></script>

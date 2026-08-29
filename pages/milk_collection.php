@@ -224,9 +224,8 @@ $records = $conn->query(
     <div class="mb-3">
         <label class="form-label"><i class="bi bi-upc-scan"></i> Farmer Code <span class="text-danger">*</span></label>
         <div class="d-flex gap-2">
-            <input type="text" id="farmerCodeInput" class="form-control code-input" style="max-width:180px" placeholder="F001"
-                   oninput="lookupFarmer(this.value, document.getElementById('farmerInfo'), document.getElementById('farmer_id'))">
-            <button type="button" class="btn btn-teal" onclick="lookupFarmer(document.getElementById('farmerCodeInput').value, document.getElementById('farmerInfo'), document.getElementById('farmer_id'))">
+            <input type="text" id="farmerCodeInput" class="form-control code-input" style="max-width:180px" placeholder="F001">
+            <button type="button" class="btn btn-teal" id="lookupFarmerBtn">
                 <i class="bi bi-search"></i> Lookup
             </button>
         </div>
@@ -237,15 +236,15 @@ $records = $conn->query(
     <div class="farmer-lookup-card mb-3">
         <div class="farmer-photo-placeholder">👨‍🌾</div>
         <div class="farmer-info">
-            <h5><?= htmlspecialchars($editRow['name']) ?></h5>
-            <span class="farmer-code"><?= htmlspecialchars($editRow['code']) ?></span>
+            <h5><?= esc($editRow['name']) ?></h5>
+            <span class="farmer-code"><?= esc($editRow['code']) ?></span>
             <p>📅 <?= date('d M Y', strtotime($editRow['collection_date'])) ?> &nbsp;|&nbsp;
                <?= $editRow['shift'] === 'morning' ? '☀️ Morning' : '🌙 Evening' ?> shift</p>
         </div>
     </div>
     <?php endif; ?>
 
-    <form method="POST" novalidate id="milkEntryForm" onsubmit="return validateForm()">
+    <form method="POST" novalidate id="milkEntryForm">
         <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
         
         <?php if ($action === 'add'): ?>
@@ -280,9 +279,8 @@ $records = $conn->query(
                 <div class="input-group">
                     <input type="number" name="litre" id="litre" class="form-control" 
                            step="0.01" min="0.1"
-                           value="<?= isset($editRow['litre']) ? htmlspecialchars($editRow['litre']) : '' ?>" 
-                           placeholder="0.00"
-                           oninput="validateField('litre'); calculateTotal()" required>
+                           value="<?= isset($editRow['litre']) ? esc($editRow['litre']) : '' ?>" 
+                           placeholder="0.00" required>
                     <span class="input-group-text">L</span>
                 </div>
                 <div class="field-error" id="litre_error"></div>
@@ -292,9 +290,8 @@ $records = $conn->query(
                 <label class="form-label">Fat % <span class="text-danger">*</span></label>
                 <input type="number" name="fat" id="fat" class="form-control" 
                        step="0.1" min="0.1" max="15"
-                       value="<?= isset($editRow['fat']) ? htmlspecialchars($editRow['fat']) : '' ?>" 
-                       placeholder="e.g. 4.5"
-                       oninput="validateField('fat'); updateRate(this.value, document.getElementById('snf').value)">
+                       value="<?= isset($editRow['fat']) ? esc($editRow['fat']) : '' ?>" 
+                       placeholder="e.g. 4.5">
                 <div class="field-error" id="fat_error"></div>
             </div>
             
@@ -302,9 +299,8 @@ $records = $conn->query(
                 <label class="form-label">SNF % <span class="text-danger">*</span></label>
                 <input type="number" name="snf" id="snf" class="form-control" 
                        step="0.1" min="0.1" max="15"
-                       value="<?= isset($editRow['snf']) ? htmlspecialchars($editRow['snf']) : '' ?>" 
-                       placeholder="e.g. 8.5"
-                       oninput="validateField('snf'); updateRate(document.getElementById('fat').value, this.value)">
+                       value="<?= isset($editRow['snf']) ? esc($editRow['snf']) : '' ?>" 
+                       placeholder="e.g. 8.5">
                 <div class="field-error" id="snf_error"></div>
             </div>
             
@@ -344,8 +340,7 @@ $records = $conn->query(
     <div class="data-card-header">
         <h6 class="data-card-title"><i class="bi bi-table"></i> Collection Records</h6>
         <div class="d-flex gap-2">
-            <input type="text" id="tableSearch" class="search-bar" placeholder="🔍 Search farmer / date..." 
-                   onkeyup="filterTable(this.value)">
+            <input type="text" id="tableSearch" class="search-bar" placeholder="🔍 Search farmer / date...">
             <button class="btn btn-sm btn-amber" onclick="printSection('milkTable')">
                 <i class="bi bi-printer"></i> Print
             </button>
@@ -408,263 +403,5 @@ $records = $conn->query(
 </div>
 
 </div>
-
-<script>
-// CSRF token for AJAX requests
-const csrfToken = '<?= $_SESSION['csrf_token'] ?>';
-
-// Function to lookup farmer by code
-function lookupFarmer(code, infoDiv, farmerIdField) {
-    if (!code || code.length < 2) {
-        infoDiv.innerHTML = '<div class="text-warning">Please enter at least 2 characters.</div>';
-        return;
-    }
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', BASE_URL + 'api/farmer_lookup.php?code=' + encodeURIComponent(code), true);
-    xhr.onload = function() {
-        if (this.status === 200) {
-            try {
-                const data = JSON.parse(this.responseText);
-                if (data.error) {
-                    infoDiv.innerHTML = `<div class="text-danger">${data.error}</div>`;
-                    if (farmerIdField) {
-                        farmerIdField.value = 0;
-                    }
-                    return;
-                }
-                infoDiv.innerHTML = `
-                    <div class="farmer-lookup-card">
-                        <div class="farmer-photo-placeholder">👨‍🌾</div>
-                        <div class="farmer-info">
-                            <h5>${data.name || ''}</h5>
-                            <span class="farmer-code">${data.code || ''}</span>
-                            <p>📞 ${data.phone || 'N/A'}</p>
-                        </div>
-                    </div>
-                `;
-                if (farmerIdField) {
-                    farmerIdField.value = data.id;
-                }
-                
-                // Auto-fill fat and SNF from the farmer's previous record
-                if (data.last_fat) {
-                    document.getElementById('fat').value = data.last_fat;
-                }
-                if (data.last_snf) {
-                    document.getElementById('snf').value = data.last_snf;
-                }
-                
-                // Update rate
-                updateRate(
-                    document.getElementById('fat').value,
-                    document.getElementById('snf').value
-                );
-            } catch (e) {
-                infoDiv.innerHTML = '<div class="text-danger">Error parsing response.</div>';
-            }
-        } else {
-            infoDiv.innerHTML = '<div class="text-danger">Error looking up farmer.</div>';
-        }
-    };
-    xhr.onerror = function() {
-        infoDiv.innerHTML = '<div class="text-danger">Network error. Please try again.</div>';
-    };
-    xhr.send();
-}
-
-// Function to validate a single field
-function validateField(fieldName) {
-    const field = document.getElementById(fieldName);
-    const errorDiv = document.getElementById(fieldName + '_error');
-    if (!field || !errorDiv) return true;
-    
-    const value = field.value.trim();
-    let isValid = true;
-    let errorMsg = '';
-    
-    if (!value) {
-        errorMsg = 'This field is required.';
-        isValid = false;
-    } else if (fieldName === 'litre') {
-        if (parseFloat(value) <= 0) {
-            errorMsg = 'Litres must be greater than 0.';
-            isValid = false;
-        }
-    } else if (fieldName === 'fat' || fieldName === 'snf') {
-        const num = parseFloat(value);
-        if (isNaN(num) || num < 0 || num > 15) {
-            errorMsg = 'Must be between 0 and 15.';
-            isValid = false;
-        }
-    } else if (fieldName === 'date') {
-        const today = new Date().toISOString().split('T')[0];
-        if (value > today) {
-            errorMsg = 'Date cannot be in the future.';
-            isValid = false;
-        }
-    }
-    
-    if (!isValid) {
-        errorDiv.textContent = errorMsg;
-        field.classList.add('is-invalid');
-        field.classList.remove('is-valid');
-    } else {
-        errorDiv.textContent = '';
-        field.classList.remove('is-invalid');
-        field.classList.add('is-valid');
-    }
-    
-    return isValid;
-}
-
-// Validate entire form
-function validateForm() {
-    const fields = ['litre', 'fat', 'snf'];
-    if (document.getElementById('date')) {
-        fields.push('date');
-    }
-    
-    let isValid = true;
-    fields.forEach(field => {
-        if (!validateField(field)) {
-            isValid = false;
-        }
-    });
-    
-    // Check farmer selection for add mode
-    if (document.getElementById('farmer_id') && 
-        parseInt(document.getElementById('farmer_id').value) < 1) {
-        document.getElementById('farmerCodeInput_error').textContent = 'Please select a valid farmer.';
-        isValid = false;
-    } else if (document.getElementById('farmerCodeInput_error')) {
-        document.getElementById('farmerCodeInput_error').textContent = '';
-    }
-    
-    if (!isValid) {
-        const alertDiv = document.getElementById('milkFormAlert');
-        alertDiv.innerHTML = '<div class="alert alert-danger">Please fix all errors before submitting.</div>';
-    }
-    
-    return isValid;
-}
-
-// Update rate based on fat and SNF
-function updateRate(fat, snf) {
-    fat = parseFloat(fat) || 0;
-    snf = parseFloat(snf) || 0;
-    
-    if (fat <= 0) {
-        document.getElementById('rate_per_liter').value = '';
-        document.getElementById('total_amount').textContent = '—';
-        return;
-    }
-    
-    // Calculate rate (same logic as PHP function)
-    let rate = 0;
-    if (fat >= 7.0) {
-        rate = 120;
-    } else if (fat >= 6.0) {
-        rate = 110;
-    } else if (fat >= 5.0) {
-        rate = 100;
-    } else if (fat >= 4.5) {
-        rate = 90;
-    } else if (fat >= 4.0) {
-        rate = 80;
-    } else if (fat >= 3.5) {
-        rate = 70;
-    } else {
-        rate = 60;
-    }
-    
-    if (snf >= 8.5) {
-        rate += 10;
-    } else if (snf >= 8.0) {
-        rate += 5;
-    }
-    
-    document.getElementById('rate_per_liter').value = rate.toFixed(2);
-    calculateTotal();
-}
-
-// Calculate total amount
-function calculateTotal() {
-    const litres = parseFloat(document.getElementById('litre').value) || 0;
-    const rate = parseFloat(document.getElementById('rate_per_liter').value) || 0;
-    
-    if (litres > 0 && rate > 0) {
-        const total = litres * rate;
-        document.getElementById('total_amount').textContent = 'रू' + total.toFixed(2);
-    } else {
-        document.getElementById('total_amount').textContent = '—';
-    }
-}
-
-// Filter table
-function filterTable(searchTerm) {
-    const rows = document.querySelectorAll('#milkTable tbody tr');
-    const term = searchTerm.toLowerCase();
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(term) ? '' : 'none';
-    });
-}
-
-// Print function
-function printSection(elementId) {
-    const printContents = document.getElementById(elementId).innerHTML;
-    const originalContents = document.body.innerHTML;
-    
-    document.body.innerHTML = `
-        <html>
-            <head>
-                <title>Milk Collection Records</title>
-                <style>
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
-                    th { background-color: #f5f5f5; }
-                    .no-print { display: none; }
-                </style>
-            </head>
-            <body>
-                <h2>Milk Collection Records</h2>
-                <p>Generated on: ${new Date().toLocaleString()}</p>
-                ${printContents}
-            </body>
-        </html>
-    `;
-    
-    window.print();
-    document.body.innerHTML = originalContents;
-    // Re-initialize event listeners
-    location.reload();
-}
-
-// Delete confirmation is handled by ui.js (loaded via footer).
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-calculate on page load if in edit mode
-    if (document.getElementById('litre') && document.getElementById('rate_per_liter')) {
-        calculateTotal();
-    }
-    
-    // Trigger validation on blur
-    document.querySelectorAll('.form-control').forEach(field => {
-        field.addEventListener('blur', function() {
-            if (this.id) {
-                validateField(this.id);
-            }
-        });
-    });
-});
-
-// Handle Enter key in search
-document.getElementById('tableSearch')?.addEventListener('keyup', function(e) {
-    if (e.key === 'Enter') {
-        filterTable(this.value);
-    }
-});
-</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

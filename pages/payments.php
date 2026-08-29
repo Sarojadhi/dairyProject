@@ -11,10 +11,13 @@ if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m');
 
 if (isset($_GET['pay'])) {
     $id = (int)$_GET['pay'];
-    $conn->query("UPDATE payments SET is_paid=1, paid_at=NOW(), paid_by={$_SESSION['user_id']} WHERE id=$id");
+    $stmt = $conn->prepare("UPDATE payments SET is_paid=1, paid_at=NOW(), paid_by=? WHERE id=?");
+    $stmt->bind_param('ii', $_SESSION['user_id'], $id);
+    $stmt->execute();
+    $stmt->close();
 }
 
-$payments = $conn->query("
+$stmt = $conn->prepare("
     SELECT
         p.id,
         f.code,
@@ -26,21 +29,38 @@ $payments = $conn->query("
         p.paid_at
     FROM payments p
     JOIN farmers f ON f.id = p.farmer_id
-    WHERE p.payment_month = '$month'
+    WHERE p.payment_month = ?
     ORDER BY f.name
 ");
+$stmt->bind_param('s', $month);
+$stmt->execute();
+$payments = $stmt->get_result();
+$stmt->close();
 
-$totals = $conn->query("
+$stmt = $conn->prepare("
     SELECT
         COALESCE(SUM(total_milk_amount),0) AS milk,
         COALESCE(SUM(total_dana_amount),0) AS dana,
         COALESCE(SUM(net_payable),0) AS net
     FROM payments
-    WHERE payment_month = '$month'
-")->fetch_assoc();
+    WHERE payment_month = ?
+");
+$stmt->bind_param('s', $month);
+$stmt->execute();
+$totals = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$paidCount = $conn->query("SELECT COUNT(*) AS c FROM payments WHERE payment_month='$month' AND is_paid=1")->fetch_assoc()['c'];
-$totalCount = $conn->query("SELECT COUNT(*) AS c FROM payments WHERE payment_month='$month'")->fetch_assoc()['c'];
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM payments WHERE payment_month=? AND is_paid=1");
+$stmt->bind_param('s', $month);
+$stmt->execute();
+$paidCount = $stmt->get_result()->fetch_assoc()['c'];
+$stmt->close();
+
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM payments WHERE payment_month=?");
+$stmt->bind_param('s', $month);
+$stmt->execute();
+$totalCount = $stmt->get_result()->fetch_assoc()['c'];
+$stmt->close();
 ?>
 <?php include __DIR__ . '/../includes/header.php'; ?>
 

@@ -8,7 +8,7 @@ $pageTitle = 'Dana (Cow Feed)';
 $action = $_GET['action'] ?? 'list';
 $msg = ''; $err = '';
 
-    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['add_dana'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['add_dana'])) {
     $farmer_id = (int)$_POST['farmer_id'];
     $date = sanitize($_POST['dana_date']);
     $bags = (float)$_POST['bags'];
@@ -26,6 +26,7 @@ $msg = ''; $err = '';
         $stmt->bind_param('isddiss', $farmer_id, $date, $bags, $rate, $is_paid, $notes, $by);
         if ($stmt->execute()) { $msg = "✅ Dana record added."; $action = 'list'; }
         else $err = "Error: " . $conn->error;
+        $stmt->close();
     }
 }
 
@@ -39,21 +40,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['edit_dana']))
     $stmt->bind_param('dddsi', $bags, $rate, $is_paid, $notes, $id);
     if ($stmt->execute()) { $msg = "✅ Record updated."; $action = 'list'; }
     else $err = "Error: " . $conn->error;
+    $stmt->close();
 }
 
 if (isset($_GET['delete']) && $_SESSION['role'] === 'admin') {
     $id = (int)$_GET['delete'];
-    $conn->query("DELETE FROM dana_records WHERE id=$id");
+    $stmt = $conn->prepare("DELETE FROM dana_records WHERE id=?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "🗑️ Record deleted.";
 }
 
 $editRow = null;
 if ($action === 'edit' && isset($_GET['id'])) {
     $id = (int)$_GET['id'];
-    $editRow = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN farmers f ON f.id=dr.farmer_id WHERE dr.id=$id")->fetch_assoc();
+    $stmt = $conn->prepare("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN farmers f ON f.id=dr.farmer_id WHERE dr.id=?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $editRow = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 }
 
-$records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN farmers f ON f.id=dr.farmer_id ORDER BY dr.dana_date DESC LIMIT 100");
+$stmt = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN farmers f ON f.id=dr.farmer_id ORDER BY dr.dana_date DESC LIMIT 100");
+$records = $stmt;
 ?>
 <?php include __DIR__ . '/../includes/header.php'; ?>
 <div class="main-content">
@@ -219,44 +229,14 @@ function calcDanaTotal() {
     }
 }
 
-// Override lookupFarmer to also show month milk
-const origLookup = window.lookupFarmer;
-window.lookupFarmer = function(code, targetDiv) {
-    if (!code || code.length < 2) {
-        targetDiv.innerHTML = '';
-        return;
-    }
-    fetch(window.BASE_URL + 'api/farmer_lookup.php?code=' + encodeURIComponent(code))
-        .then(r => r.json())
-        .then(data => {
-            if (data.error) {
-                targetDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">❌ ${data.error}</div>`;
-                return;
-            }
-            const photo = data.photo
-                ? `<img src="${window.BASE_URL}${data.photo}" class="farmer-photo" alt="${data.name}">`
-                : `<div class="farmer-photo-placeholder">👨‍🌾</div>`;
-            targetDiv.innerHTML = `
-                <div class="farmer-lookup-card">
-                    ${photo}
-                    <div class="farmer-info">
-                        <h5>${data.name}</h5>
-                        <span class="farmer-code">${data.code}</span>
-                        <p>📞 ${data.phone || 'N/A'} &nbsp;|&nbsp; 📍 ${data.address || 'N/A'}</p>
-                    </div>
-                </div>`;
-            const hiddenId = document.getElementById('farmer_id');
-            if (hiddenId) hiddenId.value = data.id;
-
-            currentMonthMilk = data.month_milk_total || 0;
-            const milkEl = document.getElementById('farmer_month_milk');
-            if (milkEl) milkEl.textContent = 'रू ' + currentMonthMilk.toFixed(2);
-            calcDanaTotal();
-        })
-        .catch(() => {
-            targetDiv.innerHTML = `<div class="alert alert-danger py-2 mb-0">❌ Lookup failed</div>`;
-        });
-};
+// Listen for farmerLoaded event from milk-entry.js
+document.addEventListener('farmerLoaded', function(e) {
+    const data = e.detail;
+    currentMonthMilk = data.month_milk_total || 0;
+    const milkEl = document.getElementById('farmer_month_milk');
+    if (milkEl) milkEl.textContent = 'रू ' + currentMonthMilk.toFixed(2);
+    calcDanaTotal();
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     <?php if ($action === 'edit' && $editRow): ?>

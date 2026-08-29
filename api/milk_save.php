@@ -60,19 +60,27 @@ if ($action === 'add') {
         apiError('Future date is not allowed — use today or a past date.');
     }
 
-    $farmer = $conn->query("SELECT id FROM farmers WHERE id = $farmer_id AND is_active = 1");
+    $stmt = $conn->prepare("SELECT id FROM farmers WHERE id = ? AND is_active = 1");
+    $stmt->bind_param('i', $farmer_id);
+    $stmt->execute();
+    $farmer = $stmt->get_result();
+    $stmt->close();
     if (!$farmer || $farmer->num_rows === 0) {
         apiError('Farmer not found or is inactive.');
     }
 
     // The fat & snf for a farmer must stay the same as their previous record.
     // Fetch the farmer's last known fat / snf and lock to it.
-    $last = $conn->query(
+    $stmt = $conn->prepare(
         "SELECT fat, snf FROM milk_collection
-         WHERE farmer_id = $farmer_id
+         WHERE farmer_id = ?
          ORDER BY collection_date DESC, id DESC
          LIMIT 1"
-    )->fetch_assoc();
+    );
+    $stmt->bind_param('i', $farmer_id);
+    $stmt->execute();
+    $last = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
 
     if ($last) {
         // Farmer has a previous record -> use (and enforce) the same fat/snf.

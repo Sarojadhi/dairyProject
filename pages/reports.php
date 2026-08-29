@@ -10,7 +10,7 @@ $date = $_GET['date'] ?? date('Y-m-d');
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) $date = date('Y-m-d');
 if ($date > date('Y-m-d')) $date = date('Y-m-d');
 
-$result = $conn->query("
+$stmt = $conn->prepare("
     SELECT
         f.code,
         f.name,
@@ -22,20 +22,31 @@ $result = $conn->query("
         mc.total_amount
     FROM milk_collection mc
     JOIN farmers f ON f.id = mc.farmer_id
-    WHERE mc.collection_date = '$date'
+    WHERE mc.collection_date = ?
     ORDER BY mc.shift, f.name
 ");
+$stmt->bind_param('s', $date);
+$stmt->execute();
+$result = $stmt->get_result();
+$stmt->close();
 
-$totals = $conn->query("
+$stmt = $conn->prepare("
     SELECT
         COUNT(*) AS entries,
         COALESCE(SUM(litre),0) AS litres,
         COALESCE(SUM(total_amount),0) AS amount
     FROM milk_collection
-    WHERE collection_date = '$date'
-")->fetch_assoc();
+    WHERE collection_date = ?
+");
+$stmt->bind_param('s', $date);
+$stmt->execute();
+$totals = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-$totalCount = $conn->query("SELECT COUNT(*) AS c FROM farmers WHERE is_active=1")->fetch_assoc()['c'];
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM farmers WHERE is_active=1");
+$stmt->execute();
+$totalCount = $stmt->get_result()->fetch_assoc()['c'];
+$stmt->close();
 ?>
 <?php include __DIR__ . '/../includes/header.php'; ?>
 

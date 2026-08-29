@@ -19,10 +19,12 @@ if (isset($_POST['save'])) {
         $stmt = $conn->prepare("UPDATE pricing_settings SET setting_value = ? WHERE setting_key = 'fat_price'");
         $stmt->bind_param('d', $fat);
         $stmt->execute();
+        $stmt->close();
 
         $stmt = $conn->prepare("UPDATE pricing_settings SET setting_value = ? WHERE setting_key = 'snf_price'");
         $stmt->bind_param('d', $snf);
         $stmt->execute();
+        $stmt->close();
 
         $message = 'Milk rate updated successfully.';
     }

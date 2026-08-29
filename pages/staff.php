@@ -67,14 +67,20 @@ if (isset($_GET['delete'])) {
     if ($id === (int)$_SESSION['user_id']) {
         $err = "You cannot deactivate your own account.";
     } else {
-        $conn->query("UPDATE users SET is_active=0 WHERE id=$id AND role != 'admin'");
+        $stmt = $conn->prepare("UPDATE users SET is_active=0 WHERE id=? AND role != 'admin'");
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $stmt->close();
         $msg = "Staff account deactivated.";
     }
 }
 
 if (isset($_GET['activate'])) {
     $id = (int)$_GET['activate'];
-    $conn->query("UPDATE users SET is_active=1 WHERE id=$id");
+    $stmt = $conn->prepare("UPDATE users SET is_active=1 WHERE id=?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
     $msg = "Staff account activated.";
 }
 
@@ -82,7 +88,11 @@ if (isset($_GET['activate'])) {
 $editRow = null;
 if (isset($_GET['edit'])) {
     $id = (int)$_GET['edit'];
-    $editRow = $conn->query("SELECT * FROM users WHERE id=$id")->fetch_assoc();
+    $stmt = $conn->prepare("SELECT * FROM users WHERE id=?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $editRow = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
     if ($editRow) $editing = true;
 }
 

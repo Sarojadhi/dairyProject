@@ -8,10 +8,11 @@ let selectedFarmerId = null;
 
 
 // Find a farmer by code and show their card.
-function lookupFarmer(code, targetDiv) {
+// Supports 2-arg (code, targetDiv) or 3-arg (code, targetDiv, farmerIdField) for backward compat.
+function lookupFarmer(code, targetDiv, farmerIdField) {
 
     if (!code || code.length < 2) {
-        targetDiv.innerHTML = '';
+        targetDiv.innerHTML = '<div class="text-warning">Please enter at least 2 characters.</div>';
         return;
     }
 
@@ -22,65 +23,40 @@ function lookupFarmer(code, targetDiv) {
         .then(function (data) {
 
             if (data.error) {
-                targetDiv.innerHTML =
-                    '<div class="alert alert-danger py-2">' +
-                    data.error +
-                    '</div>';
+                targetDiv.innerHTML = `<div class="text-danger">${data.error}</div>`;
                 selectedFarmerId = null;
+                if (farmerIdField) {
+                    farmerIdField.value = 0;
+                }
                 return;
             }
 
             // Remember the farmer that was actually looked up.
             selectedFarmerId = data.id;
 
-            // Show farmer information
+            // Show farmer information - matching the inline version style
+            const photoHtml = data.photo
+                ? `<img src="${window.BASE_URL}${data.photo}" class="farmer-photo" alt="${data.name}">`
+                : `<div class="farmer-photo-placeholder">👨‍🌾</div>`;
+            
             targetDiv.innerHTML = `
-                <div class="card bg-success text-white p-3 mb-3">
-                    <div class="d-flex align-items-center gap-3">
-
-                        ${
-                            data.photo
-                            ? `<img src="${window.BASE_URL}${data.photo}" width="80" height="80"
-                                class="rounded-circle" alt="${data.name}">`
-                            : `<div class="fs-1">👨‍🌾</div>`
-                        }
-
-                        <div>
-                            <h5 class="mb-1">${data.name}</h5>
-
-                            <span class="badge bg-warning text-dark">
-                                ${data.code}
-                            </span>
-
-                            <p class="mb-0 mt-2">
-                                📞 ${data.phone || 'N/A'}
-                                &nbsp; | &nbsp;
-                                📍 ${data.address || 'N/A'}
-                            </p>
-
-                            <p class="mb-0">
-                                Status:
-                                ${
-                                    data.is_active == 1
-                                    ? '<span class="badge bg-light text-success">Active</span>'
-                                    : '<span class="badge bg-secondary">Inactive</span>'
-                                }
-                            </p>
-                        </div>
-
+                <div class="farmer-lookup-card">
+                    ${photoHtml}
+                    <div class="farmer-info">
+                        <h5>${data.name}</h5>
+                        <span class="farmer-code">${data.code}</span>
+                        <p>📞 ${data.phone || 'N/A'} &nbsp;|&nbsp; 📍 ${data.address || 'N/A'}</p>
                     </div>
                 </div>
             `;
 
             // Put farmer ID into hidden input
-            const farmerId = document.getElementById('farmer_id');
-
+            const farmerId = farmerIdField || document.getElementById('farmer_id');
             if (farmerId) {
                 farmerId.value = data.id;
             }
 
-            // Lock the farmer's fat & snf to their last-known values so the
-            // same code always uses the same fat/snf (no manual changes).
+            // Lock the farmer's fat & snf to their last-known values
             const fatInput = document.getElementById('fat');
             const snfInput = document.getElementById('snf');
 
@@ -108,6 +84,10 @@ function lookupFarmer(code, targetDiv) {
                 }
             }
 
+            // Fire custom event with farmer data for pages that need extra info (e.g., dana.php)
+            const event = new CustomEvent('farmerLoaded', { detail: data });
+            document.dispatchEvent(event);
+
         })
         .catch(function () {
 
@@ -121,7 +101,7 @@ function lookupFarmer(code, targetDiv) {
 }
 
 
-// Get milk rate using FAT and SNF.
+// Get milk rate using FAT and SNF via API.
 function updateRate(fat) {
 
     if (!fat) {
@@ -153,13 +133,60 @@ function calculateTotal() {
     const litre = parseFloat(document.getElementById('litre').value) || 0;
     const rate = parseFloat(document.getElementById('rate_per_liter').value) || 0;
 
-    document.getElementById('total_amount').textContent =
-        'रू ' + (litre * rate).toFixed(2);
+    const totalEl = document.getElementById('total_amount');
+    if (totalEl) {
+        if (litre > 0 && rate > 0) {
+            totalEl.textContent = 'रू ' + (litre * rate).toFixed(2);
+        } else {
+            totalEl.textContent = '—';
+        }
+    }
+}
+
+
+// Validate the milk entry form before submit
+function validateMilkEntryForm() {
+    const mode = document.getElementById('date') ? 'add' : 'update';
+    let isValid = true;
+
+    // For add mode, check farmer selection
+    if (mode === 'add') {
+        const farmerId = document.getElementById('farmer_id');
+        if (!farmerId || parseInt(farmerId.value) < 1) {
+            showFieldErrorBootstrap('farmerCodeInput', 'Please lookup and select a valid farmer first.');
+            isValid = false;
+        } else {
+            showFieldOkBootstrap('farmerCodeInput');
+        }
+    }
+
+    // Validate all milk fields
+    const fields = ['litre', 'fat', 'snf'];
+    if (mode === 'add') {
+        fields.push('date', 'shift');
+    }
+
+    fields.forEach(fieldName => {
+        if (!validateField(fieldName)) {
+            isValid = false;
+        }
+    });
+
+    if (!isValid) {
+        const alertBox = document.getElementById('milkFormAlert');
+        showResultAlert(alertBox, 'danger', 'Please fix all errors before submitting.');
+    }
+
+    return isValid;
 }
 
 
 // Save a milk entry (add or update) using fetch() and show the server reply.
 function submitMilkEntry(form) {
+    if (!validateMilkEntryForm()) {
+        return;
+    }
+
     const submitBtn = form.querySelector('button[type="submit"]');
     const mode = submitBtn && submitBtn.name === 'update' ? 'update' : 'add';
 
@@ -215,3 +242,88 @@ function submitMilkEntry(form) {
             showResultAlert(alertBox, 'danger', 'Network error — could not reach the server. Please try again.');
         });
 }
+
+
+// For backward compatibility with dana.php which calls validateForm()
+function validateForm() {
+    return validateMilkEntryForm();
+}
+
+
+// Initialize milk entry form - attach event listeners
+function initMilkEntryForm() {
+    const form = document.getElementById('milkEntryForm');
+    if (!form) return;
+
+    // Auto-calculate on page load if in edit mode
+    if (document.getElementById('litre') && document.getElementById('rate_per_liter')) {
+        calculateTotal();
+    }
+
+    // Farmer code lookup - for milk_collection.php and dana.php
+    const farmerCodeInput = document.getElementById('farmerCodeInput');
+    const lookupBtn = document.getElementById('lookupFarmerBtn');
+    const farmerInfoDiv = document.getElementById('farmerInfo');
+
+    if (farmerCodeInput && farmerInfoDiv) {
+        // Live lookup on input (debounced)
+        let lookupTimer;
+        farmerCodeInput.addEventListener('input', function() {
+            clearTimeout(lookupTimer);
+            lookupTimer = setTimeout(() => {
+                const code = this.value.trim().toUpperCase();
+                if (code.length >= 2) {
+                    lookupFarmer(code, farmerInfoDiv);
+                } else {
+                    farmerInfoDiv.innerHTML = '';
+                }
+            }, 300);
+        });
+
+        // Lookup button click
+        if (lookupBtn) {
+            lookupBtn.addEventListener('click', function() {
+                const code = farmerCodeInput.value.trim().toUpperCase();
+                if (code.length >= 2) {
+                    lookupFarmer(code, farmerInfoDiv);
+                } else {
+                    farmerInfoDiv.innerHTML = '<div class="text-warning">Please enter at least 2 characters.</div>';
+                }
+            });
+        }
+    }
+
+    // Trigger validation on blur for milk entry fields
+    const milkFields = ['litre', 'fat', 'snf', 'date', 'shift'];
+    milkFields.forEach(fieldName => {
+        const field = document.getElementById(fieldName);
+        if (field) {
+            field.addEventListener('blur', function() {
+                validateField(fieldName);
+            });
+            field.addEventListener('input', function() {
+                // Real-time validation feedback
+                validateField(fieldName);
+                // Update rate when fat or snf changes
+                if (fieldName === 'fat' || fieldName === 'snf') {
+                    const fatVal = document.getElementById('fat')?.value;
+                    if (fatVal) updateRate(fatVal);
+                }
+                if (fieldName === 'litre') calculateTotal();
+            });
+        }
+    });
+
+    // Form submit handler - use AJAX
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (validateForm()) {
+            submitMilkEntry(form);
+        }
+    });
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    initMilkEntryForm();
+});

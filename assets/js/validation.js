@@ -1,6 +1,6 @@
 // Shree Tri Shakti Dairy - validation.js
 // Live client-side validation for the milk entry form and helpers
-// for other forms. Depends on: helpers.js, milk-entry.js.
+// for other forms. Depends on: helpers.js
 
 
 // Validate a single milk-entry field live.
@@ -8,94 +8,95 @@ function validateField(fieldId) {
     const input = document.getElementById(fieldId);
     if (!input) return true;
     const val = (input.value || '').trim();
+    const errorDiv = document.getElementById(fieldId + '_error');
 
     switch (fieldId) {
 
         case 'date': {
             if (isEmpty(val)) {
-                showFieldError('date', 'Please select a date.');
+                showFieldErrorBootstrap(fieldId, 'Please select a date.');
                 return false;
             }
             if (val > todayStr()) {
-                showFieldError('date', 'Future date not allowed — only today or past dates.');
+                showFieldErrorBootstrap(fieldId, 'Future date not allowed — only today or past dates.');
                 return false;
             }
-            showFieldOk('date');
+            showFieldOkBootstrap(fieldId);
             return true;
         }
 
         case 'shift': {
             if (val !== 'morning' && val !== 'evening') {
-                showFieldError('shift', 'Please select a time slot (Morning or Evening).');
+                showFieldErrorBootstrap(fieldId, 'Please select a time slot (Morning or Evening).');
                 return false;
             }
-            showFieldOk('shift');
+            showFieldOkBootstrap(fieldId);
             return true;
         }
 
         case 'litre': {
             if (isEmpty(val)) {
-                showFieldError('litre', 'Please enter the milk quantity.');
+                showFieldErrorBootstrap(fieldId, 'Please enter the milk quantity.');
                 return false;
             }
             const n = parseFloat(val);
             if (isNaN(n)) {
-                showFieldError('litre', 'Please enter a valid number for milk.');
+                showFieldErrorBootstrap(fieldId, 'Please enter a valid number for milk.');
                 return false;
             }
             if (n <= 0) {
-                showFieldError('litre', 'Milk quantity must be greater than 0 — -1 is not valid.');
+                showFieldErrorBootstrap(fieldId, 'Milk quantity must be greater than 0.');
                 return false;
             }
             if (n > 200) {
-                showFieldError('litre', 'Milk quantity looks too high (max 200 litres).');
+                showFieldErrorBootstrap(fieldId, 'Milk quantity looks too high (max 200 litres).');
                 return false;
             }
-            showFieldOk('litre');
+            showFieldOkBootstrap(fieldId);
             return true;
         }
 
         case 'fat': {
             if (isEmpty(val)) {
-                showFieldError('fat', 'Please enter the Fat %.');
+                showFieldErrorBootstrap(fieldId, 'Please enter the Fat %.');
                 return false;
             }
             const n = parseFloat(val);
             if (isNaN(n)) {
-                showFieldError('fat', 'Please enter a valid number for Fat %.');
+                showFieldErrorBootstrap(fieldId, 'Please enter a valid number for Fat %.');
                 return false;
             }
             if (n <= 0) {
-                showFieldError('fat', 'Fat % must be greater than 0.');
+                showFieldErrorBootstrap(fieldId, 'Fat % must be greater than 0.');
                 return false;
             }
             if (n > 15) {
-                showFieldError('fat', 'Fat % looks too high (max 15%).');
+                showFieldErrorBootstrap(fieldId, 'Fat % looks too high (max 15%).');
                 return false;
             }
-            showFieldOk('fat');
+            showFieldOkBootstrap(fieldId);
             return true;
         }
 
         case 'snf': {
             if (isEmpty(val)) {
-                showFieldError('snf', 'Please enter the SNF %.');
+                showFieldErrorBootstrap(fieldId, 'Please enter the SNF %.');
                 return false;
             }
             const n = parseFloat(val);
             if (isNaN(n)) {
-                showFieldError('snf', 'Please enter a valid number for SNF %.');
+                showFieldErrorBootstrap(fieldId, 'Please enter a valid number for SNF %.');
                 return false;
             }
             if (n <= 0) {
-                showFieldError('snf', 'SNF % must be greater than 0.');
+                showFieldErrorBootstrap(fieldId, 'SNF % must be greater than 0.');
                 return false;
             }
             if (n > 15) {
-                showFieldError('snf', 'SNF % looks too high (max 15%).');
+                showFieldErrorBootstrap(fieldId, 'SNF % looks too high (max 15%).');
                 return false;
             }
-            showFieldOk('snf');
+            showFieldOkBootstrap(fieldId);
             return true;
         }
     }
@@ -113,17 +114,17 @@ function validateFarmerCode() {
     if (!codeInput) return true; // edit mode - skip
 
     if (isEmpty(code)) {
-        showFieldError('farmerCodeInput', 'Please enter a farmer code.');
+        showFieldErrorBootstrap('farmerCodeInput', 'Please enter a farmer code.');
         if (farmerId) farmerId.value = '';
         selectedFarmerId = null;
         return false;
     }
     if (!selectedFarmerId) {
-        showFieldError('farmerCodeInput', 'Unknown farmer code — press Lookup and pick a real farmer.');
+        showFieldErrorBootstrap('farmerCodeInput', 'Unknown farmer code — press Lookup and pick a real farmer.');
         if (farmerId) farmerId.value = '';
         return false;
     }
-    showFieldOk('farmerCodeInput');
+    showFieldOkBootstrap('farmerCodeInput');
     return true;
 }
 
@@ -135,11 +136,37 @@ function validateForm(form) {
     );
     for (let input of inputs) {
         if (input.hasAttribute('required') && isEmpty(input.value)) {
-            showFieldError(input.id || input.name, 'This field is required.');
+            showFieldErrorBootstrap(input.id || input.name, 'This field is required.');
             return false;
         }
     }
     return true;
+}
+
+
+// Bootstrap-compatible field error display
+function showFieldErrorBootstrap(fieldId, msg) {
+    const input = document.getElementById(fieldId);
+    const errBox = document.getElementById(fieldId + '_error');
+    if (input) {
+        input.classList.add('is-invalid');
+        input.classList.remove('is-valid');
+    }
+    if (errBox) {
+        errBox.textContent = msg;
+    }
+}
+
+function showFieldOkBootstrap(fieldId) {
+    const input = document.getElementById(fieldId);
+    const errBox = document.getElementById(fieldId + '_error');
+    if (input) {
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+    }
+    if (errBox) {
+        errBox.textContent = '';
+    }
 }
 
 
