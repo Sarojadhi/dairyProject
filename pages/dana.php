@@ -10,11 +10,11 @@ $msg = ''; $err = '';
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_dana'])) {
     $farmer_id = (int)$_POST['farmer_id'];
-    $date = sanitize($conn, $_POST['dana_date']);
+    $date = sanitize($_POST['dana_date']);
     $bags = (float)$_POST['bags'];
     $rate = (float)$_POST['rate_per_bag'];
     $is_paid = (int)($_POST['is_paid'] ?? 0);
-    $notes = sanitize($conn, $_POST['notes'] ?? '');
+    $notes = sanitize($_POST['notes'] ?? '');
     $by = $_SESSION['user_id'];
 
     if ($farmer_id < 1 || $bags <= 0 || $rate <= 0) {
@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_dana'])) {
     $bags = (float)$_POST['bags'];
     $rate = (float)$_POST['rate_per_bag'];
     $is_paid = (int)($_POST['is_paid'] ?? 0);
-    $notes = sanitize($conn, $_POST['notes'] ?? '');
+    $notes = sanitize($_POST['notes'] ?? '');
     $stmt = $conn->prepare("UPDATE dana_records SET bags=?, rate_per_bag=?, is_paid=?, notes=? WHERE id=?");
     $stmt->bind_param('dddsi', $bags, $rate, $is_paid, $notes, $id);
     if ($stmt->execute()) { $msg = "✅ Record updated."; $action = 'list'; }
@@ -94,9 +94,9 @@ $records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN f
     </div>
     <?php endif; ?>
 
-    <form method="POST">
+    <form method="POST" novalidate>
         <?php if ($action === 'add'): ?>
-        <input type="hidden" name="farmer_id" id="farmer_id">
+        <input type="hidden" name="farmer_id" id="farmer_id" required data-msg="Please lookup and select a farmer first.">
         <?php else: ?>
         <input type="hidden" name="id" value="<?= $editRow['id'] ?>">
         <?php endif; ?>
@@ -147,7 +147,7 @@ $records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN f
             </div>
             <div class="col-md-8">
                 <label class="form-label">Notes <small class="text-muted">(optional)</small></label>
-                <textarea name="notes" class="form-control" rows="1" placeholder="Optional notes..."><?= htmlspecialchars($editRow['notes'] ?? '') ?></textarea>
+                <textarea name="notes" class="form-control" rows="1" maxlength="255" placeholder="Optional notes..."><?= htmlspecialchars($editRow['notes'] ?? '') ?></textarea>
             </div>
         </div>
         <div class="mt-3 d-flex gap-2">
