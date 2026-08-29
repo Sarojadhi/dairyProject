@@ -12,7 +12,7 @@ $userName = $_SESSION['name'] ?? '';
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="/dairy/assets/css/style.css">
+    <link rel="stylesheet" href="<?= BASE_URL ?>assets/css/style.css">
 </head>
 
 <body>
@@ -22,7 +22,7 @@ $userName = $_SESSION['name'] ?? '';
 
         <!-- Logo -->
         <a class="navbar-brand d-flex align-items-center gap-2"
-           href="/dairy/dashboard.php">
+           href="<?= BASE_URL ?>dashboard.php">
 
             <span class="brand-icon">🐄</span>
 
@@ -40,7 +40,7 @@ $userName = $_SESSION['name'] ?? '';
             <!-- Dashboard -->
             <li class="nav-item">
                 <a class="nav-link <?= $pageTitle === 'Dashboard' ? 'active' : '' ?>"
-                   href="/dairy/dashboard.php">
+                   href="<?= BASE_URL ?>dashboard.php">
 
                     <i class="bi bi-speedometer2"></i>
                     Dashboard
@@ -53,7 +53,7 @@ $userName = $_SESSION['name'] ?? '';
 
                 <li class="nav-item">
                     <a class="nav-link <?= strpos($pageTitle, 'Collection') !== false ? 'active' : '' ?>"
-                       href="/dairy/pages/milk_collection.php">
+                       href="<?= BASE_URL ?>pages/milk_collection.php">
 
                         <i class="bi bi-droplet-fill"></i>
                         Milk Entry
@@ -62,7 +62,7 @@ $userName = $_SESSION['name'] ?? '';
 
                 <li class="nav-item">
                     <a class="nav-link <?= strpos($pageTitle, 'Dana') !== false ? 'active' : '' ?>"
-                       href="/dairy/pages/dana.php">
+                       href="<?= BASE_URL ?>pages/dana.php">
 
                         <i class="bi bi-basket3-fill"></i>
                         Dana
@@ -75,7 +75,7 @@ $userName = $_SESSION['name'] ?? '';
             <!-- Reports -->
             <li class="nav-item">
                 <a class="nav-link <?= strpos($pageTitle, 'Report') !== false ? 'active' : '' ?>"
-                   href="/dairy/pages/reports.php">
+                   href="<?= BASE_URL ?>pages/reports.php">
 
                     <i class="bi bi-bar-chart-line-fill"></i>
                     Reports
@@ -100,7 +100,7 @@ $userName = $_SESSION['name'] ?? '';
 
                         <li>
                             <a class="dropdown-item"
-                               href="/dairy/pages/farmers.php">
+                               href="<?= BASE_URL ?>pages/farmers.php">
 
                                 <i class="bi bi-people-fill"></i>
                                 Farmers
@@ -111,7 +111,7 @@ $userName = $_SESSION['name'] ?? '';
 
                             <li>
                                 <a class="dropdown-item"
-                                   href="/dairy/pages/staff.php">
+                                   href="<?= BASE_URL ?>pages/staff.php">
 
                                     <i class="bi bi-person-badge-fill"></i>
                                     Staff
@@ -120,7 +120,7 @@ $userName = $_SESSION['name'] ?? '';
 
                             <li>
                                 <a class="dropdown-item"
-                                   href="/dairy/pages/rates.php">
+                                   href="<?= BASE_URL ?>pages/rates.php">
 
                                     <i class="bi bi-currency-rupee"></i>
                                     Milk Rates
@@ -129,7 +129,7 @@ $userName = $_SESSION['name'] ?? '';
 
                             <li>
                                 <a class="dropdown-item"
-                                   href="/dairy/pages/payments.php">
+                                   href="<?= BASE_URL ?>pages/payments.php">
 
                                     <i class="bi bi-wallet2"></i>
                                     Payments
@@ -149,7 +149,7 @@ $userName = $_SESSION['name'] ?? '';
 
                 <li class="nav-item">
                     <a class="nav-link"
-                       href="/dairy/pages/farmer/my_records.php">
+                       href="<?= BASE_URL ?>pages/farmer/my_records.php">
 
                         <i class="bi bi-journal-text"></i>
                         My Records
@@ -178,7 +178,7 @@ $userName = $_SESSION['name'] ?? '';
 
             </div>
 
-            <a href="/dairy/logout.php"
+            <a href="<?= BASE_URL ?>logout.php"
                class="btn btn-sm btn-logout">
 
                 <i class="bi bi-box-arrow-right"></i>
@@ -190,10 +190,3 @@ $userName = $_SESSION['name'] ?? '';
 
     </div>
 </nav>
-
-
-<!-- Bootstrap JS -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-</body>
-</html>

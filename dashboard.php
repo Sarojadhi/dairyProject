@@ -1,52 +1,91 @@
 <?php
 session_start();
-require_once 'includes/config.php';
+require_once __DIR__ . '/includes/config.php';
 requireLogin();
 
 $pageTitle = 'Dashboard';
-$role = $_SESSION['role'];
-$userId = $_SESSION['user_id'];
+$role = $_SESSION['role'] ?? '';
+$userId = (int)($_SESSION['user_id'] ?? 0);
 
-if ($role === 'farmer') {
+// Initialize variables
+$farmers = 0;
+$milk = ['litres' => 0, 'earning' => 0, 'revenue' => 0];
+$recent = null;
 
-    $milk = $conn->query("
-        SELECT 
-            SUM(litre) AS litres,
-            SUM(total_amount) AS earning
-        FROM milk_collection
-        WHERE farmer_id = $userId
-    ")->fetch_assoc();
+try {
+    if ($role === 'farmer') {
+        // Farmer view: get their total milk and earnings
+        $stmt = $conn->prepare("
+            SELECT 
+                SUM(litre) AS litres,
+                SUM(total_amount) AS earning
+            FROM milk_collection
+            WHERE farmer_id = ?
+        ");
+        if ($stmt) {
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $milk = $result->fetch_assoc() ?: ['litres' => 0, 'earning' => 0];
+            $stmt->close();
+        }
 
-    $recent = $conn->query("
-        SELECT *
-        FROM milk_collection
-        WHERE farmer_id = $userId
-        ORDER BY collection_date DESC
-        LIMIT 10
-    ");
+        // Recent records for this farmer
+        $stmt = $conn->prepare("
+            SELECT *
+            FROM milk_collection
+            WHERE farmer_id = ?
+            ORDER BY collection_date DESC
+            LIMIT 10
+        ");
+        if ($stmt) {
+            $stmt->bind_param("i", $userId);
+            $stmt->execute();
+            $recent = $stmt->get_result();
+            $stmt->close();
+        }
+    } else {
+        // Admin/Staff view: get total farmers, total milk, revenue
+        $result = $conn->query("
+            SELECT COUNT(*) AS total
+            FROM farmers
+            WHERE is_active = 1
+        ");
+        $farmers = $result ? (int)$result->fetch_assoc()['total'] : 0;
 
-} else {
+        $result = $conn->query("
+            SELECT 
+                SUM(litre) AS litres,
+                SUM(total_amount) AS revenue
+            FROM milk_collection
+        ");
+        $milk = $result ? $result->fetch_assoc() : ['litres' => 0, 'revenue' => 0];
+        $milk['litres'] = (float)($milk['litres'] ?? 0);
+        $milk['revenue'] = (float)($milk['revenue'] ?? 0);
 
-    $farmers = $conn->query("
-        SELECT COUNT(*) AS total
-        FROM farmers
-        WHERE is_active = 1
-    ")->fetch_assoc()['total'];
+        // Recent records across all farmers
+        $recent = $conn->query("
+            SELECT mc.*, f.name, f.code
+            FROM milk_collection mc
+            JOIN farmers f ON f.id = mc.farmer_id
+            ORDER BY mc.collection_date DESC
+            LIMIT 10
+        ");
+    }
 
-    $milk = $conn->query("
-        SELECT 
-            SUM(litre) AS litres,
-            SUM(total_amount) AS revenue
-        FROM milk_collection
-    ")->fetch_assoc();
+    // Ensure $recent is a valid mysqli_result object
+    if (!($recent instanceof mysqli_result)) {
+        // If query failed, create an empty result set
+        $recent = new mysqli_result($conn, MYSQLI_STORE_RESULT);
+        // But we can't create an empty result easily; we'll set to null and handle in while
+        // Better to create a dummy array to iterate? Let's set $recent = null and handle.
+        $recent = null;
+    }
 
-    $recent = $conn->query("
-        SELECT mc.*, f.name, f.code
-        FROM milk_collection mc
-        JOIN farmers f ON f.id = mc.farmer_id
-        ORDER BY mc.collection_date DESC
-        LIMIT 10
-    ");
+} catch (Exception $e) {
+    // Log error and show generic message
+    error_log("Dashboard error: " . $e->getMessage());
+    $errorMsg = "Unable to load dashboard data. Please try again later.";
 }
 ?>
 
@@ -56,6 +95,9 @@ if ($role === 'farmer') {
 
     <div class="page-header">
         <h1 class="page-title">Dashboard</h1>
+        <?php if (!empty($errorMsg)): ?>
+            <div class="alert alert-danger"><?= htmlspecialchars($errorMsg) ?></div>
+        <?php endif; ?>
     </div>
 
     <!-- Statistics -->
@@ -63,7 +105,7 @@ if ($role === 'farmer') {
 
         <?php if ($role === 'farmer'): ?>
 
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stat-card">
                     <div class="stat-value">
                         <?= number_format($milk['litres'] ?? 0, 2) ?> L
@@ -72,7 +114,7 @@ if ($role === 'farmer') {
                 </div>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <div class="stat-card">
                     <div class="stat-value">
                         रू<?= number_format($milk['earning'] ?? 0, 2) ?>
@@ -85,7 +127,7 @@ if ($role === 'farmer') {
 
             <div class="col-md-4">
                 <div class="stat-card">
-                    <div class="stat-value"><?= $farmers ?></div>
+                    <div class="stat-value"><?= (int)$farmers ?></div>
                     <div class="stat-label">Active Farmers</div>
                 </div>
             </div>
@@ -146,48 +188,56 @@ if ($role === 'farmer') {
 
                 <tbody>
 
-                <?php while ($row = $recent->fetch_assoc()): ?>
+                <?php if ($recent && $recent->num_rows > 0): ?>
+                    <?php while ($row = $recent->fetch_assoc()): ?>
 
-                    <tr>
+                        <tr>
 
-                        <?php if ($role !== 'farmer'): ?>
+                            <?php if ($role !== 'farmer'): ?>
+                                <td>
+                                    <?= htmlspecialchars($row['name'] ?? '') ?><br>
+                                    <small><?= htmlspecialchars($row['code'] ?? '') ?></small>
+                                </td>
+                            <?php endif; ?>
+
                             <td>
-                                <?= htmlspecialchars($row['name']) ?><br>
-                                <small><?= $row['code'] ?></small>
+                                <?= date('d M Y', strtotime($row['collection_date'] ?? '')) ?>
                             </td>
-                        <?php endif; ?>
 
-                        <td>
-                            <?= date('d M Y', strtotime($row['collection_date'])) ?>
+                            <td>
+                                <?= ucfirst(htmlspecialchars($row['shift'] ?? '')) ?>
+                            </td>
+
+                            <td>
+                                <?= number_format((float)($row['litre'] ?? 0), 2) ?> L
+                            </td>
+
+                            <td>
+                                <?= number_format((float)($row['fat'] ?? 0), 2) ?>%
+                            </td>
+
+                            <td>
+                                <?= number_format((float)($row['snf'] ?? 0), 2) ?>%
+                            </td>
+
+                            <td>
+                                रू<?= number_format((float)($row['rate_per_liter'] ?? 0), 2) ?>
+                            </td>
+
+                            <td>
+                                रू<?= number_format((float)($row['total_amount'] ?? 0), 2) ?>
+                            </td>
+
+                        </tr>
+
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="<?= $role === 'farmer' ? 7 : 8 ?>" class="text-center text-muted py-4">
+                            No milk collection records found.
                         </td>
-
-                        <td>
-                            <?= ucfirst($row['shift']) ?>
-                        </td>
-
-                        <td>
-                            <?= number_format($row['litre'], 2) ?> L
-                        </td>
-
-                        <td>
-                            <?= number_format($row['fat'], 2) ?>%
-                        </td>
-
-                        <td>
-                            <?= number_format($row['snf'], 2) ?>%
-                        </td>
-
-                        <td>
-                            रू<?= number_format($row['rate_per_liter'], 2) ?>
-                        </td>
-
-                        <td>
-                            रू<?= number_format($row['total_amount'], 2) ?>
-                        </td>
-
                     </tr>
-
-                <?php endwhile; ?>
+                <?php endif; ?>
 
                 </tbody>
 

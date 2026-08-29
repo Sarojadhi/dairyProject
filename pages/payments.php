@@ -1,71 +1,164 @@
 <?php
-require_once '../includes/config.php';
+session_start();
+require_once __DIR__ . '/../includes/config.php';
 requireLogin();
+requireRole('admin');
+
+$pageTitle = 'Payments';
 
 $month = $_GET['month'] ?? date('Y-m');
+if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m');
 
 if (isset($_GET['pay'])) {
-    $id = $_GET['pay'];
-
-    $conn->query(
-        "UPDATE payments SET is_paid=1 WHERE id=$id"
-    );
+    $id = (int)$_GET['pay'];
+    $conn->query("UPDATE payments SET is_paid=1, paid_at=NOW(), paid_by={$_SESSION['user_id']} WHERE id=$id");
 }
 
 $payments = $conn->query("
-    SELECT 
+    SELECT
         p.id,
         f.code,
         f.name,
         p.total_milk_amount,
         p.total_dana_amount,
         p.net_payable,
-        p.is_paid
+        p.is_paid,
+        p.paid_at
     FROM payments p
     JOIN farmers f ON f.id = p.farmer_id
     WHERE p.payment_month = '$month'
+    ORDER BY f.name
 ");
+
+$totals = $conn->query("
+    SELECT
+        COALESCE(SUM(total_milk_amount),0) AS milk,
+        COALESCE(SUM(total_dana_amount),0) AS dana,
+        COALESCE(SUM(net_payable),0) AS net
+    FROM payments
+    WHERE payment_month = '$month'
+")->fetch_assoc();
+
+$paidCount = $conn->query("SELECT COUNT(*) AS c FROM payments WHERE payment_month='$month' AND is_paid=1")->fetch_assoc()['c'];
+$totalCount = $conn->query("SELECT COUNT(*) AS c FROM payments WHERE payment_month='$month'")->fetch_assoc()['c'];
 ?>
+<?php include __DIR__ . '/../includes/header.php'; ?>
 
-<h2>Payments</h2>
+<div class="main-content">
 
-<form>
-    <input type="month" name="month" value="<?= $month ?>">
-    <button>View</button>
-</form>
+    <div class="page-header">
+        <h1 class="page-title">
+            <div class="page-title-icon"><i class="bi bi-wallet2"></i></div>
+            Payments
+        </h1>
+    </div>
 
-<table border="1">
+    <!-- Month Filter + Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="data-card mb-0">
+                <div class="data-card-body">
+                    <form method="GET" class="d-flex align-items-end gap-2">
+                        <div class="flex-grow-1">
+                            <label class="form-label">Select Month</label>
+                            <input type="month" name="month" class="form-control" value="<?= htmlspecialchars($month) ?>">
+                        </div>
+                        <button class="btn btn-teal"><i class="bi bi-funnel me-1"></i>View</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <div class="stat-card">
+                        <div class="stat-value">रू<?= number_format($totals['net'] ?? 0, 0) ?></div>
+                        <div class="stat-label">Net Payable</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="stat-card">
+                        <div class="stat-value"><?= $paidCount ?>/<?= $totalCount ?></div>
+                        <div class="stat-label">Paid</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="stat-card">
+                        <div class="stat-value" style="color:var(--amber-600)">
+                            <?= (int)($totalCount - $paidCount) ?>
+                        </div>
+                        <div class="stat-label">Pending</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<tr>
-    <th>Farmer</th>
-    <th>Milk</th>
-    <th>Dana</th>
-    <th>Net</th>
-    <th>Status</th>
-    <th>Action</th>
-</tr>
+    <div class="data-card">
+        <div class="data-card-header">
+            <h6 class="data-card-title"><i class="bi bi-table"></i> Payments — <?= date('F Y', strtotime($month . '-01')) ?></h6>
+        </div>
+        <div class="data-card-body p-0">
+            <div class="table-responsive">
+                <table class="dairy-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Farmer</th>
+                            <th>Milk Amount</th>
+                            <th>Dana Amount</th>
+                            <th>Net Payable</th>
+                            <th>Status</th>
+                            <th class="no-print">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if ($payments->num_rows === 0): ?>
+                        <tr><td colspan="7" class="text-center text-muted py-4">No payments found for this month.</td></tr>
+                    <?php endif; ?>
+                    <?php $i = 1; while ($p = $payments->fetch_assoc()): ?>
+                        <tr>
+                            <td><?= $i++ ?></td>
+                            <td>
+                                <strong><?= htmlspecialchars($p['name']) ?></strong><br>
+                                <small class="text-muted"><?= $p['code'] ?></small>
+                            </td>
+                            <td>रू<?= number_format($p['total_milk_amount'], 2) ?></td>
+                            <td>रू<?= number_format($p['total_dana_amount'], 2) ?></td>
+                            <td><strong style="color:var(--teal-700)">रू<?= number_format($p['net_payable'], 2) ?></strong></td>
+                            <td>
+                                <?= $p['is_paid']
+                                    ? '<span class="badge-paid">✅ Paid</span>'
+                                    : '<span class="badge-unpaid">⏳ Pending</span>' ?>
+                            </td>
+                            <td class="no-print">
+                                <?php if (!$p['is_paid']): ?>
+                                    <a href="?pay=<?= $p['id'] ?>&month=<?= urlencode($month) ?>"
+                                       class="btn-action btn-edit confirm-pay" title="Mark as Paid">
+                                        <i class="bi bi-check2-circle"></i> Mark Paid
+                                    </a>
+                                <?php else: ?>
+                                    <small class="text-muted">Paid <?= date('d M Y', strtotime($p['paid_at'])) ?></small>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-<?php while ($p = $payments->fetch_assoc()): ?>
+</div>
 
-<tr>
-    <td><?= $p['code'] ?> - <?= $p['name'] ?></td>
-    <td>Rs. <?= $p['total_milk_amount'] ?></td>
-    <td>Rs. <?= $p['total_dana_amount'] ?></td>
-    <td>Rs. <?= $p['net_payable'] ?></td>
+<?php include __DIR__ . '/../includes/footer.php'; ?>
 
-    <td>
-        <?= $p['is_paid'] ? 'Paid' : 'Pending' ?>
-    </td>
-
-    <td>
-        <?php if (!$p['is_paid']): ?>
-            <a href="?pay=<?= $p['id'] ?>&month=<?= $month ?>">
-                Mark Paid
-            </a>
-        <?php endif; ?>
-    </td>
-</tr>
-
-<?php endwhile; ?>
-
-</table>
+<script>
+(function () {
+    document.querySelectorAll('.confirm-pay').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            if (!confirm('Mark this farmer as PAID for ' + 'the selected month' + '?')) e.preventDefault();
+        });
+    });
+})();
+</script>

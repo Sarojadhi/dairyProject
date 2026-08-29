@@ -1,13 +1,10 @@
-
-
-
 <?php
 
 // Start the session.
 session_start();
 
 // Load the database connection and helper functions.
-require_once '../includes/config.php';
+require_once __DIR__ . '/../includes/config.php';
 
 // Check if the user is logged in.
 requireLogin();

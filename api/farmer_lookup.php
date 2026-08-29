@@ -1,11 +1,10 @@
-
 <?php
 
 // Start the session so we can check if the user is logged in.
 session_start();
 
 // Load database connection and helper functions.
-require_once '../includes/config.php';
+require_once __DIR__ . '/../includes/config.php';
 
 // Make sure only logged-in users can access this file.
 requireLogin();
@@ -90,6 +89,25 @@ $milkTotal = $milk['total'] ?? 0;
 
 // Add the monthly milk total to farmer information.
 $farmer['month_milk_total'] = (float) $milkTotal;
+
+
+// A farmer's fat & snf stay the same on every collection, so return the
+// last-known values so the milk entry form can pre-fill (and lock) them.
+$farmer['last_fat'] = null;
+$farmer['last_snf'] = null;
+
+$last = $conn->query(
+    "SELECT fat, snf
+     FROM milk_collection
+     WHERE farmer_id = " . (int)$farmer['id'] . "
+     ORDER BY collection_date DESC, id DESC
+     LIMIT 1"
+)->fetch_assoc();
+
+if ($last) {
+    $farmer['last_fat'] = (float) $last['fat'];
+    $farmer['last_snf'] = (float) $last['snf'];
+}
 
 
 // Send farmer information as JSON.

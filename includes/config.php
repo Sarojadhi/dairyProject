@@ -13,6 +13,46 @@ define('SITE_NAME', 'Shree Tri Shakti Dairy');
 define('UPLOAD_PATH', dirname(__DIR__) . '/assets/uploads/farmers/');
 define('UPLOAD_URL', 'assets/uploads/farmers/');
 
+// Base URL for the whole app. Detected automatically so it works no matter
+// which folder the project is deployed in (https://host/dairy, /dairyProject,
+// a subfolder, or the site root). Trailing slash is included.
+function appBaseUrl()
+{
+    static $base = null;
+
+    if ($base !== null) {
+        return $base;
+    }
+
+    // The project root is the parent of this file's folder (includes/).
+    $projRoot = str_replace('\\', '/', dirname(__DIR__));
+    $docRoot = str_replace('\\', '/', ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    $script = str_replace('\\', '/', ($_SERVER['SCRIPT_NAME'] ?? '/'));
+    $scriptFile = str_replace('\\', '/', ($_SERVER['SCRIPT_FILENAME'] ?? ''));
+
+    $urlPath = '';
+
+    if ($docRoot !== '' && strpos($projRoot, $docRoot) === 0) {
+        // Normal case: project lives inside the web root (XAMPP/WAMP).
+        $urlPath = substr($projRoot, strlen($docRoot));
+    } elseif ($scriptFile !== '' && strpos($scriptFile, $projRoot) === 0) {
+        // Derive the base from how the current script maps to its URL.
+        $rel = substr($scriptFile, strlen($projRoot)); // e.g. /pages/x.php
+        $urlPath = rtrim(substr($script, 0, max(0, strlen($script) - strlen($rel))), '/');
+    } else {
+        // Last resort: use the project folder's name.
+        $urlPath = '/' . basename($projRoot);
+    }
+
+    $base = '/' . trim($urlPath, '/');
+    $base = ($base === '/') ? '/' : $base . '/';
+
+    return $base;
+}
+
+// Shorthand constant for use in HTML/redirects, e.g. echo BASE_URL . 'css/app.css'
+define('BASE_URL', appBaseUrl());
+
 // Default milk prices
 define('FAT_PRICE', 10.5);
 define('SNF_PRICE', 3.5);
@@ -38,9 +78,14 @@ function sanitize($data)
 
 
 // Redirect user to another page
+// Accepts a path relative to the app root (e.g. 'dashboard.php') or a full URL.
 function redirect($url)
 {
-    header("Location: $url");
+    if (strpos($url, 'http') === 0 || strpos($url, '/') === 0) {
+        header("Location: $url");
+    } else {
+        header("Location: " . BASE_URL . ltrim($url, '/'));
+    }
     exit;
 }
 
@@ -56,7 +101,7 @@ function isLoggedIn()
 function requireLogin()
 {
     if (!isLoggedIn()) {
-        redirect('/dairy/index.php');
+        redirect('index.php');
     }
 }
 
@@ -67,7 +112,7 @@ function requireRole($roles)
     requireLogin();
 
     if (!in_array($_SESSION['role'], (array) $roles)) {
-        redirect('/dairy/dashboard.php');
+        redirect('dashboard.php');
     }
 }
 

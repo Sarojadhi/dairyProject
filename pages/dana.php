@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../includes/config.php';
+require_once __DIR__ . '/../includes/config.php';
 requireLogin();
 requireRole(['admin','staff']);
 
@@ -8,7 +8,7 @@ $pageTitle = 'Dana (Cow Feed)';
 $action = $_GET['action'] ?? 'list';
 $msg = ''; $err = '';
 
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_dana'])) {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['add_dana'])) {
     $farmer_id = (int)$_POST['farmer_id'];
     $date = sanitize($_POST['dana_date']);
     $bags = (float)$_POST['bags'];
@@ -19,6 +19,8 @@ $msg = ''; $err = '';
 
     if ($farmer_id < 1 || $bags <= 0 || $rate <= 0) {
         $err = "Please fill all required fields.";
+    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || $date > date('Y-m-d')) {
+        $err = "Date cannot be in the future — use today or a past date.";
     } else {
         $stmt = $conn->prepare("INSERT INTO dana_records (farmer_id, dana_date, bags, rate_per_bag, is_paid, notes, recorded_by) VALUES (?,?,?,?,?,?,?)");
         $stmt->bind_param('isddiss', $farmer_id, $date, $bags, $rate, $is_paid, $notes, $by);
@@ -27,7 +29,7 @@ $msg = ''; $err = '';
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_dana'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['edit_dana'])) {
     $id = (int)$_POST['id'];
     $bags = (float)$_POST['bags'];
     $rate = (float)$_POST['rate_per_bag'];
@@ -53,7 +55,7 @@ if ($action === 'edit' && isset($_GET['id'])) {
 
 $records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN farmers f ON f.id=dr.farmer_id ORDER BY dr.dana_date DESC LIMIT 100");
 ?>
-<?php include '../includes/header.php'; ?>
+<?php include __DIR__ . '/../includes/header.php'; ?>
 <div class="main-content">
 <div class="page-header">
     <h1 class="page-title">
@@ -105,7 +107,7 @@ $records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN f
             <?php if ($action === 'add'): ?>
             <div class="col-md-4">
                 <label class="form-label">Date <span class="text-danger">*</span></label>
-                <input type="date" name="dana_date" class="form-control" value="<?= date('Y-m-d') ?>" required>
+                <input type="date" name="dana_date" class="form-control" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>" required>
             </div>
             <?php endif; ?>
             <div class="col-md-4">
@@ -198,7 +200,7 @@ $records = $conn->query("SELECT dr.*, f.name, f.code FROM dana_records dr JOIN f
     </div>
 </div>
 </div>
-<?php include '../includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>
 <script>
 let currentMonthMilk = 0;
 
@@ -224,7 +226,7 @@ window.lookupFarmer = function(code, targetDiv) {
         targetDiv.innerHTML = '';
         return;
     }
-    fetch('/dairy/api/farmer_lookup.php?code=' + encodeURIComponent(code))
+    fetch(window.BASE_URL + 'api/farmer_lookup.php?code=' + encodeURIComponent(code))
         .then(r => r.json())
         .then(data => {
             if (data.error) {
@@ -232,7 +234,7 @@ window.lookupFarmer = function(code, targetDiv) {
                 return;
             }
             const photo = data.photo
-                ? `<img src="/dairy/${data.photo}" class="farmer-photo" alt="${data.name}">`
+                ? `<img src="${window.BASE_URL}${data.photo}" class="farmer-photo" alt="${data.name}">`
                 : `<div class="farmer-photo-placeholder">👨‍🌾</div>`;
             targetDiv.innerHTML = `
                 <div class="farmer-lookup-card">

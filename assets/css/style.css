@@ -323,6 +323,14 @@ body {
 }
 .dairy-table tbody tr:hover { background: var(--teal-100); }
 .dairy-table tbody tr:last-child td { border-bottom: none; }
+.dairy-table tfoot th {
+    background: var(--teal-100);
+    color: var(--teal-900);
+    font-weight: 700;
+    border-top: 2px solid var(--teal-300);
+}
+.dairy-table tfoot th:first-child { border-radius: 0 0 0 10px; }
+.dairy-table tfoot th:last-child { border-radius: 0 0 10px 0; }
 
 .table-responsive { border-radius: var(--radius); overflow: hidden; }
 
@@ -398,6 +406,24 @@ body {
 .btn-view { background: var(--teal-100); color: var(--teal-700); }
 .btn-view:hover { background: var(--teal-700); color: #fff; }
 
+.btn-outline-secondary {
+    background: #fff;
+    color: var(--teal-700);
+    border: 1.5px solid var(--teal-300);
+    border-radius: 8px;
+    padding: 0.5rem 1.2rem;
+    font-size: 0.87rem;
+    font-weight: 600;
+    transition: all 0.18s;
+    text-decoration: none;
+    display: inline-block;
+}
+.btn-outline-secondary:hover {
+    background: var(--teal-100);
+    color: var(--teal-900);
+    border-color: var(--teal-500);
+}
+
 /* ---- BADGES ---- */
 .shift-morning { background: var(--amber-100); color: var(--amber-600); padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
 .shift-evening { background: #e0e7ff; color: #4338ca; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
@@ -437,6 +463,33 @@ body {
 .alert-danger { background: #fee2e2; color: var(--danger); }
 .alert-warning { background: var(--amber-100); color: var(--amber-600); }
 .alert-info { background: var(--teal-100); color: var(--teal-700); }
+
+/* ---- CLIENT-SIDE VALIDATION ---- */
+.field-error {
+    display: none;
+    color: var(--danger);
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 5px;
+}
+.field-error.show { display: block; }
+.form-control.invalid,
+select.form-control.invalid {
+    border-color: var(--danger);
+    background: #fff5f5;
+}
+.form-control.invalid:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(220,38,38,0.12);
+}
+.input-group:has(.form-control.invalid) .input-group-text {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.code-input.invalid {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 4px rgba(220,38,38,0.12);
+}
 
 /* ---- CODE INPUT HIGHLIGHT ---- */
 .code-input-wrap { position: relative; }
